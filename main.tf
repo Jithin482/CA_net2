@@ -35,7 +35,7 @@ resource "aws_security_group" "vm_sg" {
 
 # Data source to fetch an existing key pair from your AWS account
 data "aws_key_pair" "existing_key" {
-  key_name = "key"  # Replace with your existing key pair name
+  key_name = "my-key-pair"  # Replace with your existing key pair name
 }
 
 # EC2 Instance using the key pair and security group
