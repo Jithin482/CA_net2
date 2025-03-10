@@ -69,7 +69,7 @@ jobs:
         with:
           name: instance-ip-file
 
-      - name: Read EC2 Instance IP
+      - name: Read EC2 Instance IPs
         run: |
           INSTANCE_IP=$(cat instance_ip.txt)
           echo "EC2 Instance IP: $INSTANCE_IP"  # Debugging output to check the IP
