@@ -1,0 +1,83 @@
+---
+- name: Set up Docker and Nginx container
+  hosts: aws_servers
+  become: yes
+  tasks:
+    # Ensure Python pip is installed
+    - name: Ensure Python pip is installed
+      apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+
+    # Install python3-venv (required to create Python virtual environments)
+    - name: Install python3-venv
+      apt:
+        name: python3-venv
+        state: present
+        update_cache: yes
+
+    # Install virtualenv
+    - name: Install virtualenv
+      apt:
+        name: python3-virtualenv
+        state: present
+        update_cache: yes
+
+    # Create a Python virtual environment
+    - name: Create a Python virtual environment
+      command:
+        cmd: python3 -m venv /home/ubuntu/myenv
+        creates: /home/ubuntu/myenv
+
+    # Install specific versions of requests and urllib3 in the virtual environment
+    - name: Install requests and urllib3 in virtualenv
+      pip:
+        name:
+          - requests==2.28.1
+          - urllib3==1.26.5
+        virtualenv: /home/ubuntu/myenv
+
+    # Install Docker
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    # Start Docker service
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # Add user to docker group
+    - name: Add user to docker group
+      user:
+        name: ubuntu  # Use 'ec2-user' for Amazon Linux or 'ubuntu' for Ubuntu-based systems
+        groups: docker
+        append: yes
+
+    # Copy index.html to the server
+    - name: Copy custom index.html to server
+      copy:
+        src: ./index.html  # Local file path (same folder as docker.yml)
+        dest: /home/ubuntu/index.html  # Destination on the server
+
+    # Pull Nginx Docker image
+    - name: Pull Nginx Docker image
+      community.docker.docker_image:
+        name: nginx
+        source: pull
+
+    # Run Nginx container with mounted index.html
+    - name: Run Nginx container with custom index.html
+      community.docker.docker_container:
+        name: nginx
+        image: nginx
+        state: started
+        ports:
+          - "80:80"
+        volumes:
+          - /home/ubuntu/index.html:/usr/share/nginx/html/index.html  # Mount the custom index.html
