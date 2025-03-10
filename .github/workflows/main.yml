@@ -10,43 +10,43 @@ on:
 
 jobs:
   # Terraform Job
-  terraform:
-    runs-on: ubuntu-latest
-    environment: production
+  # terraform:
+  #   runs-on: ubuntu-latest
+  #   environment: production
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4  # Updated to v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4  # Updated to v4
 
-      - name: Set up AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}  # Add this line
+  #     - name: Set up AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ secrets.AWS_REGION }}  # Add this line
 
-      - name: Install Terraform
-        run: |
-          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-          sudo apt-add-repository "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-          sudo apt-get update
-          sudo apt-get install terraform
+  #     - name: Install Terraform
+  #       run: |
+  #         curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+  #         sudo apt-add-repository "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+  #         sudo apt-get update
+  #         sudo apt-get install terraform
 
-      - name: Initialize Terraform
-        run: terraform init
+  #     - name: Initialize Terraform
+  #       run: terraform init
 
-      - name: Apply Terraform
-        run: terraform apply -auto-approve
+  #     - name: Apply Terraform
+  #       run: terraform apply -auto-approve
 
-      - name: Output EC2 Instance IP to File
-        run: |
-          terraform output -raw vm_ip > instance_ip.txt  # Capture IP into a file
+  #     - name: Output EC2 Instance IP to File
+  #       run: |
+  #         terraform output -raw vm_ip > instance_ip.txt  # Capture IP into a file
 
-      - name: Upload IP file as artifact
-        uses: actions/upload-artifact@v4  # Updated to v4
-        with:
-          name: instance-ip-file
-          path: instance_ip.txt
+  #     - name: Upload IP file as artifact
+  #       uses: actions/upload-artifact@v4  # Updated to v4
+  #       with:
+  #         name: instance-ip-file
+  #         path: instance_ip.txt
 
   # Ansible Job
   ansible:
