@@ -1,0 +1,98 @@
+name: CI/CD Pipeline for Terraform, Ansible, and Docker
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the 'main' branch.
+  pull_request:
+    branches:
+      - main  # Trigger the workflow on pull requests to the 'main' branch.
+
+jobs:
+  # Terraform Job
+  terraform:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install Terraform
+        run: |
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get update
+          sudo apt-get install terraform
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Apply Terraform
+        run: terraform apply -auto-approve
+
+      - name: Output EC2 Instance IP to File
+        run: |
+          terraform output -raw vm_ip > instance_ip.txt  # Capture IP into a file
+
+      - name: Upload IP file as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: instance-ip-file
+          path: instance_ip.txt
+
+  # Ansible Job
+  ansible:
+    runs-on: ubuntu-latest
+    needs: terraform  # Ensures the Terraform job runs first
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download the instance IP from Terraform output
+        uses: actions/download-artifact@v3
+        with:
+          name: instance-ip-file
+
+      - name: Read EC2 Instance IP
+        run: |
+          INSTANCE_IP=$(cat instance_ip.txt)
+          echo "EC2 Instance IP: $INSTANCE_IP"  # Debugging output to check the IP
+
+      - name: Install Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository --yes --update ppa:ansible/ansible
+          sudo apt install -y ansible
+
+      - name: Set up Ansible inventory file
+        run: |
+          echo "[aws_servers]" > inventory.ini
+          echo "$(cat instance_ip.txt) ansible_user=ubuntu ansible_ssh_private_key_file=my-key-pair.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no -o KbdInteractiveAuthentication=no -o PreferredAuthentications=publickey -o PasswordAuthentication=no'" >> inventory.ini
+
+      - name: Debug Inventory File (optional)
+        run: cat inventory.ini
+        
+      - name: Set up SSH private key
+        run: |
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > my-key-pair.pem
+          chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
+          
+      - name: Run Ansible playbook
+        run: ansible-playbook -i inventory.ini deploy.yml
