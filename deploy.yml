@@ -1,5 +1,5 @@
 ---
-- name: Set up Docker and Nginx container
+- name: Update Nginx container with new index.html
   hosts: aws_servers
   become: yes
   tasks:
@@ -59,20 +59,34 @@
         groups: docker
         append: yes
 
-    # Copy index.html to the server
-    - name: Copy custom index.html to server
+    # Copy the updated index.html to the server
+    - name: Copy updated index.html to server
       copy:
-        src: ./index.html  # Local file path (same folder as docker.yml)
+        src: ./index.html  # Local file path (same folder as deploy.yml)
         dest: /home/ubuntu/index.html  # Destination on the server
 
-    # Pull Nginx Docker image
+    # Stop the existing Nginx container (if running)
+    - name: Stop existing Nginx container
+      community.docker.docker_container:
+        name: nginx
+        state: stopped
+      ignore_errors: yes  # Ignore errors if the container doesn't exist
+
+    # Remove the existing Nginx container (if it exists)
+    - name: Remove existing Nginx container
+      community.docker.docker_container:
+        name: nginx
+        state: absent
+      ignore_errors: yes  # Ignore errors if the container doesn't exist
+
+    # Pull the latest Nginx Docker image
     - name: Pull Nginx Docker image
       community.docker.docker_image:
         name: nginx
         source: pull
 
-    # Run Nginx container with mounted index.html
-    - name: Run Nginx container with custom index.html
+    # Run Nginx container with the updated index.html
+    - name: Run Nginx container with updated index.html
       community.docker.docker_container:
         name: nginx
         image: nginx
@@ -80,4 +94,4 @@
         ports:
           - "80:80"
         volumes:
-          - /home/ubuntu/index.html:/usr/share/nginx/html/index.html  # Mount the custom index.html
+          - /home/ubuntu/index.html:/usr/share/nginx/html/index.html  # Mount the updated index.html
