@@ -31,6 +31,7 @@ jobs:
           sudo apt-add-repository "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
           sudo apt-get update
           sudo apt-get install terraform
+
       - name: Initialize Terraform
         run: terraform init
 
@@ -40,6 +41,7 @@ jobs:
       - name: Output EC2 Instance IP to File
         run: |
           terraform output -raw vm_ip > instance_ip.txt  # Capture IP into a file
+
       - name: Upload IP file as artifact
         uses: actions/upload-artifact@v4  # Updated to v4
         with:
@@ -60,7 +62,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}  # Add this line
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Download the instance IP from Terraform output
         uses: actions/download-artifact@v4  # Updated to v4
@@ -71,6 +73,7 @@ jobs:
         run: |
           INSTANCE_IP=$(cat instance_ip.txt)
           echo "EC2 Instance IP: $INSTANCE_IP"  # Debugging output to check the IP
+
       - name: Install Ansible
         run: |
           sudo apt update
@@ -78,19 +81,18 @@ jobs:
           sudo add-apt-repository --yes --update ppa:ansible/ansible
           sudo apt install -y ansible
 
-              
       - name: Set up SSH private key
         run: |
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > my-key-pair.pem
           chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
-          
+
       - name: Set up Ansible inventory file
         run: |
           echo "[aws_servers]" > inventory.ini
           echo "$(cat instance_ip.txt) ansible_user=ubuntu ansible_ssh_private_key_file=my-key-pair.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no -o KbdInteractiveAuthentication=no -o PreferredAuthentications=publickey -o PasswordAuthentication=no'" >> inventory.ini
+
       - name: Debug Inventory File (optional)
         run: cat inventory.ini
 
-          
       - name: Run Ansible playbook
         run: ansible-playbook -i inventory.ini deploy.yml
