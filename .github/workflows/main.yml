@@ -35,6 +35,9 @@ jobs:
       - name: Initialize Terraform
         run: terraform init
 
+      - name: Destroy old instances
+        run: terraform destroy -auto-approve
+
       - name: Apply Terraform
         run: terraform apply -auto-approve
 
