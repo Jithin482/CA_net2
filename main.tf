@@ -1,14 +1,30 @@
 provider "aws" {
-  region = "eu-west-1"  # Change to your desired AWS region
+  region = "eu-west-1"
 }
 
-# Define a Security Group with a unique name or check if it exists
+# Fetch existing instances to avoid duplicates
+data "aws_instances" "existing_instances" {
+  instance_state_names = ["running", "pending"]
+  filter {
+    name   = "tag:Name"
+    values = ["TerraformVM"]
+  }
+}
+
+# Terminate previous instances before creating a new one
+resource "null_resource" "terminate_old_instance" {
+  count = length(data.aws_instances.existing_instances.ids) > 0 ? 1 : 0
+
+  provisioner "local-exec" {
+    command = "aws ec2 terminate-instances --instance-ids ${join(" ", data.aws_instances.existing_instances.ids)}"
+  }
+}
+
+# Define Security Group
 resource "aws_security_group" "vm_sg" {
-  # Dynamically generate a unique name by using a timestamp to avoid duplicates
   name        = "vm_security_group_${timestamp()}"
   description = "Allow SSH and HTTP access"
 
-  # Allow SSH (port 22)
   ingress {
     from_port   = 22
     to_port     = 22
@@ -16,7 +32,6 @@ resource "aws_security_group" "vm_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow HTTP (port 80)
   ingress {
     from_port   = 80
     to_port     = 80
@@ -24,7 +39,6 @@ resource "aws_security_group" "vm_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Egress (Allow all outbound traffic)
   egress {
     from_port   = 0
     to_port     = 0
@@ -33,31 +47,29 @@ resource "aws_security_group" "vm_sg" {
   }
 }
 
-# Data source to fetch an existing key pair from your AWS account
 data "aws_key_pair" "existing_key" {
-  key_name = "my-key-pair"  # Replace with your existing key pair name
+  key_name = "my-key-pair"
 }
 
-# EC2 Instance using the key pair and security group
+# EC2 Instance
 resource "aws_instance" "vm" {
-  ami           = "ami-03fd334507439f4d1"  # Replace with your preferred AMI ID
+  ami           = "ami-03fd334507439f4d1"
   instance_type = "t2.micro"
-  key_name      = data.aws_key_pair.existing_key.key_name   # Reference the existing key pair
+  key_name      = data.aws_key_pair.existing_key.key_name
 
-  # Associate the EC2 instance with the security group
   vpc_security_group_ids = [aws_security_group.vm_sg.id]
 
   tags = {
     Name = "TerraformVM"
   }
+
+  depends_on = [null_resource.terminate_old_instance]  # Ensure old instances are terminated before creating a new one
 }
 
-# Output the public IP of the EC2 instance
 output "vm_ip" {
   value = aws_instance.vm.public_ip
 }
 
-# Save the public IP to a .txt file on apply
 resource "local_file" "output_ip" {
   content  = aws_instance.vm.public_ip
   filename = "${path.module}/vm_ip.txt"
